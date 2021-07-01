@@ -17,7 +17,7 @@ limitations under the License.
 
 ## Example Dataset Introduction
 This documentation intends to provide user the introduction on 
-[GCP training](notebooks/mayo_train_gcp.ipynb) or 
+[GCP training](notebooks/train_gcp.ipynb) or 
 [Local training](notebooks/train_local.ipynb)
 on the user custom dataset. We take the ICIAR 
 2018 Grand Challenge on BreAst Cancer Histology images 
