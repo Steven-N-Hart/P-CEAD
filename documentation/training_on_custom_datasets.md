@@ -17,8 +17,8 @@ limitations under the License.
 
 ## Example Dataset Introduction
 This documentation intends to provide user the introduction on 
-[GCP training](notebooks/mayo_train_gcp.ipynb) or 
-[Local training](notebooks/train_local.ipynb)
+[GCP training](https://github.com/Steven-N-Hart/P-CEAD/tree/main/notebooks/mayo_train_gcp.ipynb) or 
+[Local training](https://github.com/Steven-N-Hart/P-CEAD/tree/main/notebooks/train_local.ipynb)
 on the user custom dataset. We take the ICIAR 
 2018 Grand Challenge on BreAst Cancer Histology images 
 [BACH Dataset](https://iciar2018-challenge.grand-challenge.org/Dataset/).
@@ -29,7 +29,7 @@ data we used in our publication, the image patch size is 1024x1024. The reason w
 provide user the insight on how to train and evaluate the models on a different image size. 
 
 Since we have already provide a explanation for all training input arguments in 
-[training_defaults.md](documentation/training_defaults.md), instead of listing all training configs for training on the 
+[training_defaults.md](https://github.com/Steven-N-Hart/P-CEAD/tree/main/documentation/training_defaults.md), instead of listing all training configs for training on the 
 BACH dataset, we only provide the input training arguments that are necessary to change in order to start the training 
 job on the BACH dataset. 
 
