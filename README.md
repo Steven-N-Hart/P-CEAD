@@ -1,4 +1,4 @@
-Implementation of [Unsupervised Learning of Anomaly Detection from Contaminated Image Data using Simultaneous Encoder Training](https://arxiv.org/abs/1905.11034).
+Implementation of [Using Progressive Context Encoders for Anomaly Detection in Digital Pathology Images](https://www.biorxiv.org/content/10.1101/2021.07.02.450957v1).
 
 # General Instruction
 
