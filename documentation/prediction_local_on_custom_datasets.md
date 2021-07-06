@@ -17,7 +17,7 @@ limitations under the License.
 
 ## Example Dataset Introduction
 This documentation intends to provide user the introduction on running 
-[prediction (/inference) code locally](notebooks/predict_local.ipynb) on the 
+[prediction (/inference) code locally](https://github.com/Steven-N-Hart/P-CEAD/blob/main/notebooks/predict_local.ipynb) on the 
 user custom dataset. We take the ICIAR 2018 Grand Challenge on BreAst Cancer Histology images 
 [BACH Dataset](https://iciar2018-challenge.grand-challenge.org/Dataset/).
 
@@ -27,7 +27,7 @@ data we used in our publication, the image patch size is 1024x1024. The reason w
 provide user the insight on how to evaluate the models on a different image size locally. 
 
 Since we have already provide a explanation for all prediction (/inference) input arguments in 
-[inference_defaults.md](documentation/inference_defaults.md), instead of listing all training configs for training on the 
+[inference_defaults.md](https://github.com/Steven-N-Hart/P-CEAD/tree/main/documentation/inference_defaults.md), instead of listing all training configs for training on the 
 BACH dataset, we only provide the input training arguments that are necessary to change in order to start the training 
 job on the BACH dataset. 
 
