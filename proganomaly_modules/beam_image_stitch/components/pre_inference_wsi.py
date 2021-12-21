@@ -1,4 +1,4 @@
-# Copyright 2020 Google Inc. All Rights Reserved.
+# Copyright 2021 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -106,26 +106,17 @@ def rgb2hed_method(thumbnail, threshold):
     return binary_img
 
 
-def create_full_slide_mask(binary_img, slide_dims):
-    """Creates full slide mask from binary image.
+def scaler(x, scale):
+    """Scales position coordinate.
 
     Args:
-        binary_img: np.array, binary array of shape
-            (thumbnail_width, thumbnail_height, 1).
-        slide_dims: 2-tuple of ints, (slide_width, slide_height) at level 0.
+        x: int, pixel position.
+        scale: float, scale factor to apply to position.
 
     Returns:
-        Binary np.array of shape (slide_width, slide_height, 1).
+        Float of scaled position.
     """
-    binary_img_image = tf.reshape(
-        tensor=binary_img,
-        shape=(1, binary_img.shape[0], binary_img.shape[1], 1)
-    )
-    return tf.image.resize(
-        images=binary_img_image,
-        size=(slide_dims[1], slide_dims[0]),
-        method="nearest"
-    )[0, :, :, 0]
+    return (float(x) + 0.5) * scale
 
 
 def wsi_build_grid(
@@ -133,9 +124,10 @@ def wsi_build_grid(
     slide_dims,
     patch_height,
     patch_width,
-    full_slide_mask,
+    thumbnail,
     include_patch_threshold,
-    batch_size
+    batch_size,
+    half_pixel_centers=True
 ):
     """Builds grid for 4-ary tree stitching of patches.
 
@@ -144,12 +136,14 @@ def wsi_build_grid(
         slide_dims: 2-tuple of ints, (slide_width, slide_height) at level 0.
         patch_height: int, the height in pixels of an image patch.
         patch_width: int, the width in pixels of an image patch.
-        full_slide_mask: np.array, binary array of shape
-            (slide_width, slide_height, 1).
+        thumbnail: np.array, binary array of shape
+            (thumbnail_width, thumbnail_height, 1).
         include_patch_threshold: float, threshold to compare with percent of
             binary flags within a patch region to include in collection.
         batch_size: int, number of images to include in each batch for
             inference.
+        half_pixel_centers: bool, whether to use half pixel centers for
+            nearest neighbor interpolation.
 
     Returns:
         List of dictionaries containing batch index, 4-ary tree indices and
@@ -164,30 +158,45 @@ def wsi_build_grid(
         for i in range(max_dim)
     ]
 
-    block_height = slide_dims[1] // patch_height
-    block_width = slide_dims[0] // patch_width
+    pixel_threshold = include_patch_threshold * patch_height * patch_width
+    slide_width, slight_height = slide_dims
+    thumbnail_height, thumbnail_width = thumbnail.shape[0:2]
+    height_scale = thumbnail_height / slight_height
+    width_scale = thumbnail_width / slide_width
+    num_patches_high = slight_height // patch_height
+    num_patches_wide = slide_width // patch_width
+
     patches_added = 0
-    for i in range(block_height):
-        low_height = i * patch_height
-        high_height = low_height + patch_height
-        for j in range(block_width):
-            low_width = j * patch_width
-            high_width = low_width + patch_width
-            counts = tf.reduce_sum(
-                input_tensor=full_slide_mask[
-                    low_height: high_height, low_width: high_width
-                ]
-            )
-            percent = tf.cast(counts, tf.float32) / (patch_height * patch_width)
-            if percent > include_patch_threshold:
-                grid_list_of_lists_of_dicts[i][j]["coords"] = (
-                    low_height, low_width
+    for ph in range(num_patches_high):
+        y_low = ph * patch_height
+        y_high = y_low + patch_height
+        for pw in range(num_patches_wide):
+            x_low = pw * patch_width
+            x_high = x_low + patch_width
+            count = 0
+            for y in range(y_low, y_high):
+                in_y = min(
+                    math.floor(scaler(y, height_scale)), thumbnail_height - 1
                 )
-                grid_list_of_lists_of_dicts[i][j]["batch_idx"] = (
+                if half_pixel_centers:
+                    in_y = max(0, in_y)
+                for x in range(x_low, x_high):
+                    in_x = min(
+                        math.floor(scaler(x, width_scale)),
+                        thumbnail_width - 1
+                    )
+                    if half_pixel_centers:
+                        in_x = max(0, in_x)
+                    count += thumbnail[in_y, in_x]
+            if count > pixel_threshold:
+                grid_list_of_lists_of_dicts[ph][pw]["coords"] = (
+                    y_low, x_low
+                )
+                grid_list_of_lists_of_dicts[ph][pw]["batch_idx"] = (
                     patches_added // batch_size
                 )
                 patches_added += 1
-        
+
     height, width = max_dim, max_dim
     depth = int(math.log(max_dim, 2))
 
@@ -299,9 +308,6 @@ def wsi_pre_inference(
             thumbnail=thumbnail, threshold=rgb2hed_threshold
         )
 
-    full_slide_mask = create_full_slide_mask(
-        binary_img, slide_dims=wsi.level_dimensions[0]
-    )
     max_dim = 2 ** max(
         math.ceil(math.log(wsi.level_dimensions[0][1] / patch_height, 2)),
         math.ceil(math.log(wsi.level_dimensions[0][0] / patch_width, 2))
@@ -312,7 +318,7 @@ def wsi_pre_inference(
         wsi.level_dimensions[0],
         patch_height,
         patch_width,
-        full_slide_mask,
+        binary_img,
         include_patch_threshold,
         batch_size
     )
