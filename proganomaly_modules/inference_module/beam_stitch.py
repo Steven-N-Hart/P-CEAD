@@ -89,11 +89,14 @@ python3 ../proganomaly_modules/beam_image_stitch/beam_image_stitch.py \\
 --scaling_power={scaling_power} \\
 --scaling_factor={scaling_factor} \\
 --cmap_str={cmap_str} \\
+--dynamic_bandwidth_scale_factor={dynamic_bandwidth_scale_factor} \\
+--max_anomaly_points_for_kde={max_anomaly_points_for_kde} \\
 --kde_threshold={kde_threshold} \\
 --annotation_patch_gcs_filepath="" \\
 --num_confusion_matrix_thresholds=0 \\
 --custom_mahalanobis_distance_threshold={custom_mahalanobis_distance_threshold} \\
 --nary_tree_depth={nary_tree_depth} \\
+--output_image_sizes={output_image_sizes} \\
 --segmentation_export_dir={segmentation_export_dir} \\
 --segmentation_model_name={segmentation_model_name} \\
 --segmentation_patch_size={segmentation_patch_size} \\
@@ -193,11 +196,21 @@ python3 ../proganomaly_modules/beam_image_stitch/beam_image_stitch.py \\
         scaling_power=config["inference"]["gan"]["scaling_power"],
         scaling_factor=config["inference"]["gan"]["scaling_factor"],
         cmap_str=config["inference"]["gan"]["cmap_str"],
+        dynamic_bandwidth_scale_factor=config["inference"]["gan"][
+            "dynamic_bandwidth_scale_factor"],
+        max_anomaly_points_for_kde=config["inference"]["gan"][
+            "max_anomaly_points_for_kde"],
         kde_threshold=config["inference"]["gan"]["kde_threshold"],
         custom_mahalanobis_distance_threshold=(
             config["inference"]["gan"]["custom_mahalanobis_distance_threshold"]
         ),
         nary_tree_depth=config["inference"]["gan"]["nary_tree_depth"],
+        output_image_sizes=",".join(
+            [
+                str(t[0]) + ";" + str(t[1])
+                for t in config["inference"]["gan"]["output_image_sizes"]
+            ]
+        ),
         segmentation_export_dir=config["inference"]["segmentation"][
             "segmentation_export_dir"],
         segmentation_model_name=config["inference"]["segmentation"][

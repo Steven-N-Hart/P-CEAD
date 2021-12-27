@@ -1,4 +1,4 @@
-# Copyright 2020 Google Inc. All Rights Reserved.
+# Copyright 2021 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,6 +39,15 @@ def run(argv=None, save_main_session=True):
             return False
         else:
             raise argparse.ArgumentTypeError("Boolean value expected.")
+
+    def _str_to_2_int_tuple_list(s):
+        if not s: return []
+        tuple_list = [
+            tuple([int(z) for z in x.split(";")]) for x in s.split(",")
+        ]
+        for tup in tuple_list:
+            assert len(tup) == 2, "Tuples should have two values: height & width."
+        return tuple_list
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -252,6 +261,16 @@ def run(argv=None, save_main_session=True):
         default="turbo",
         help="Color map to use for RGB kernel density estimation (KDE) image.")
     parser.add_argument(
+        "--dynamic_bandwidth_scale_factor",
+        type=float,
+        default=50000.0,
+        help="Amount to scale the bandwidth based on anomaly counts.")
+    parser.add_argument(
+        "--max_anomaly_points_for_kde",
+        type=int,
+        default=50000,
+        help="Maximum number of points allowed to run KDE. Otherwise entire image is marked as anomalous.")
+    parser.add_argument(
         "--kde_threshold",
         type=float,
         default=0.2,
@@ -276,6 +295,11 @@ def run(argv=None, save_main_session=True):
         type=int,
         default=1,
         help="Depth of n-ary tree.")
+    parser.add_argument(
+        "--output_image_sizes",
+        type=_str_to_2_int_tuple_list,
+        default=[(1024, 1024)],
+        help="List of 2-tuples of output image height and width for each n-ary level, starting from leaves.")
     parser.add_argument(
         "--segmentation_export_dir",
         type=str,
@@ -440,22 +464,7 @@ def run(argv=None, save_main_session=True):
     if known_args.output_segmentation_nuclei_coords:
         segmentation_coord_types_set.add("segmentation_nuclei_coords")
 
-    output_image_sizes = [
-        (2048, 2048),
-        (4096, 4096),
-        (8192, 8192),
-        (8192, 8192),
-        (8192, 8192),
-        (8192, 8192),
-        (8192, 8192),
-        (8192, 8192),
-        (8192, 8192),
-        (8192, 8192),
-        (8192, 8192)
-    ]
-
-    assert(len(output_image_sizes) >= known_args.nary_tree_depth)
-    output_image_sizes[:known_args.nary_tree_depth]
+    assert(len(known_args.output_image_sizes) >= known_args.nary_tree_depth)
 
     # The pipeline will be run on exiting the with block.
     with beam.Pipeline(known_args.runner, options=pipeline_options) as p:
@@ -524,6 +533,12 @@ def run(argv=None, save_main_session=True):
                     scaling_power=known_args.scaling_power,
                     scaling_factor=known_args.scaling_factor,
                     cmap_str=known_args.cmap_str,
+                    dynamic_bandwidth_scale_factor=(
+                        known_args.dynamic_bandwidth_scale_factor
+                    ),
+                    max_anomaly_points_for_kde=(
+                        known_args.max_anomaly_points_for_kde
+                    ),
                     kde_threshold=known_args.kde_threshold,
                     annotation_patch_gcs_filepath=(
                         known_args.annotation_patch_gcs_filepath
@@ -573,8 +588,8 @@ def run(argv=None, save_main_session=True):
                     stitch_type
                 ) >> beam.ParDo(
                     images.BranchCombineDoFn(
-                        patch_height=output_image_sizes[0][0],
-                        patch_width=output_image_sizes[0][1]
+                        patch_height=known_args.output_image_sizes[0][0],
+                        patch_width=known_args.output_image_sizes[0][1]
                     )
                 )
             )
@@ -589,8 +604,10 @@ def run(argv=None, save_main_session=True):
                     "Branch-branch Combine image_{}_{}".format(
                         i, stitch_type) >> beam.ParDo(
                         images.BranchCombineDoFn(
-                            patch_height=output_image_sizes[i + 1][0],
-                            patch_width=output_image_sizes[i + 1][1]
+                            patch_height=(
+                                known_args.output_image_sizes[i + 1][0]
+                            ),
+                            patch_width=known_args.output_image_sizes[i + 1][1]
                         )
                     )
                 )

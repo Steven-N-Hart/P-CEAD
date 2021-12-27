@@ -1,4 +1,4 @@
-# Copyright 2020 Google Inc. All Rights Reserved.
+# Copyright 2021 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -62,6 +62,10 @@ class InferenceDoFn(beam.DoFn):
         scaling_factor: float, positive factor to scale anomaly flag
             counts by.
         cmap_str: str, which color map to use.
+        dynamic_bandwidth_scale_factor: float, amount to scale the
+            bandwidth based on anomaly counts.
+        max_anomaly_points_for_kde: int, maximum number of points allowed
+            to run KDE. Otherwise entire image is marked as anomalous.
         kde_threshold: float, threshold to convert KDE grayscale image into
             binary mask.
         annotation_patch_gcs_filepath: str, GCS path where annotation patch
@@ -113,6 +117,8 @@ class InferenceDoFn(beam.DoFn):
         scaling_power,
         scaling_factor,
         cmap_str,
+        dynamic_bandwidth_scale_factor,
+        max_anomaly_points_for_kde,
         kde_threshold,
         annotation_patch_gcs_filepath,
         num_confusion_matrix_thresholds,
@@ -165,6 +171,10 @@ class InferenceDoFn(beam.DoFn):
             scaling_factor: float, positive factor to scale anomaly flag
                 counts by.
             cmap_str: str, which color map to use.
+            dynamic_bandwidth_scale_factor: float, amount to scale the
+                bandwidth based on anomaly counts.
+            max_anomaly_points_for_kde: int, maximum number of points allowed
+                to run KDE. Otherwise entire image is marked as anomalous.
             kde_threshold: float, threshold to convert KDE grayscale image
                 into binary mask.
             annotation_patch_gcs_filepath: str, GCS path where annotation
@@ -216,6 +226,8 @@ class InferenceDoFn(beam.DoFn):
         self.scaling_power = scaling_power
         self.scaling_factor = scaling_factor
         self.cmap_str = cmap_str
+        self.dynamic_bandwidth_scale_factor = dynamic_bandwidth_scale_factor
+        self.max_anomaly_points_for_kde = max_anomaly_points_for_kde
         self.kde_threshold = kde_threshold
         self.annotation_patch_gcs_filepath = annotation_patch_gcs_filepath
         self.num_confusion_matrix_thresholds = num_confusion_matrix_thresholds
@@ -657,7 +669,18 @@ class InferenceDoFn(beam.DoFn):
             params=params
         )
 
-    def kde2D(self, x, y, bandwidth, kernel, metric, xbins, ybins, **kwargs):
+    def kde2D(
+        self,
+        x,
+        y,
+        bandwidth,
+        kernel,
+        metric,
+        xbins,
+        ybins,
+        dynamic_bandwidth_scale_factor,
+        **kwargs
+    ):
         """Builds 2D kernel density estimate (KDE).
 
         Args:
@@ -671,6 +694,8 @@ class InferenceDoFn(beam.DoFn):
                 are valid with all algorithms.
             xbins: int, number of sample bins to create in the x dimension.
             ybins: int, number of sample bins to create in the y dimension.
+            dynamic_bandwidth_scale_factor: float, amount to scale the
+                bandwidth based on anomaly counts.
             kwargs: dict, any other keyword args to pass to
                 sklearn.neighbors.KernelDensity.
 
@@ -687,6 +712,12 @@ class InferenceDoFn(beam.DoFn):
 
         xy_sample = np.vstack([yy.ravel(), xx.ravel()]).T
         xy_train  = np.vstack([y, x]).T
+
+        anomaly_counts = x.shape[0]
+        if anomaly_counts > 0:
+            bandwidth *= max(
+                1.0, dynamic_bandwidth_scale_factor / anomaly_counts
+            )
 
         kde_skl = sklearn.neighbors.KernelDensity(
             bandwidth=bandwidth,
@@ -714,7 +745,9 @@ class InferenceDoFn(beam.DoFn):
         min_anomaly_points_remaining,
         scaling_power,
         scaling_factor,
-        cmap_str
+        cmap_str,
+        dynamic_bandwidth_scale_factor,
+        max_anomaly_points_for_kde
     ):
         """Gets kernel density estimates for both RGB and grayscale.
 
@@ -739,6 +772,10 @@ class InferenceDoFn(beam.DoFn):
             scaling_factor: float, positive factor to scale anomaly flag
                 counts by.
             cmap_str: str, which color map to use.
+            dynamic_bandwidth_scale_factor: float, amount to scale the
+                bandwidth based on anomaly counts.
+            max_anomaly_points_for_kde: int, maximum number of points allowed
+                to run KDE. Otherwise entire image is marked as anomalous.
 
         Returns:
             mesh_rgb: np.array, RGB KDE image of shape
@@ -790,19 +827,25 @@ class InferenceDoFn(beam.DoFn):
             counts_remaining.append(anomaly_points.shape[0])
 
             if anomaly_points.shape[0] > min_anomaly_points_remaining:
-                # each shape = (num_true,).
-                x, y = anomaly_points[:, 0], anomaly_points[:, 1]
+                if anomaly_points.shape[0] <= max_anomaly_points_for_kde:
+                    # each shape = (num_true,).
+                    x, y = anomaly_points[:, 0], anomaly_points[:, 1]
 
-                # shape = (xbins, ybins).
-                zz = self.kde2D(
-                    x=x,
-                    y=y,
-                    bandwidth=bandwidth,
-                    kernel=kernel,
-                    metric=metric,
-                    xbins=xbins,
-                    ybins=ybins
-                )
+                    # shape = (xbins, ybins).
+                    zz = self.kde2D(
+                        x=x,
+                        y=y,
+                        bandwidth=bandwidth,
+                        kernel=kernel,
+                        metric=metric,
+                        xbins=xbins,
+                        ybins=ybins,
+                        dynamic_bandwidth_scale_factor=(
+                            dynamic_bandwidth_scale_factor
+                        )
+                    )
+                else:
+                    zz = tf.ones(shape=(xbins, ybins), dtype=tf.float64)
             else:
                 zz = tf.zeros(shape=(xbins, ybins), dtype=tf.float64)
 
@@ -1152,7 +1195,13 @@ class InferenceDoFn(beam.DoFn):
                             ),
                             scaling_power=self.scaling_power,
                             scaling_factor=self.scaling_factor,
-                            cmap_str=self.cmap_str
+                            cmap_str=self.cmap_str,
+                            dynamic_bandwidth_scale_factor=(
+                                self.dynamic_bandwidth_scale_factor
+                            ),
+                            max_anomaly_points_for_kde=(
+                                self.max_anomaly_points_for_kde
+                            )
                         )
                     )
 
