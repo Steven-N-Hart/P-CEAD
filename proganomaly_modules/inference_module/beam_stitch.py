@@ -96,6 +96,7 @@ python3 ../proganomaly_modules/beam_image_stitch/beam_image_stitch.py \\
 --num_confusion_matrix_thresholds=0 \\
 --custom_mahalanobis_distance_threshold={custom_mahalanobis_distance_threshold} \\
 --nary_tree_depth={nary_tree_depth} \\
+--output_image_sizes={output_image_sizes} \\
 --segmentation_export_dir={segmentation_export_dir} \\
 --segmentation_model_name={segmentation_model_name} \\
 --segmentation_patch_size={segmentation_patch_size} \\
@@ -204,6 +205,12 @@ python3 ../proganomaly_modules/beam_image_stitch/beam_image_stitch.py \\
             config["inference"]["gan"]["custom_mahalanobis_distance_threshold"]
         ),
         nary_tree_depth=config["inference"]["gan"]["nary_tree_depth"],
+        output_image_sizes=",".join(
+            [
+                str(t[0]) + ";" + str(t[1])
+                for t in config["inference"]["gan"]["output_image_sizes"]
+            ]
+        ),
         segmentation_export_dir=config["inference"]["segmentation"][
             "segmentation_export_dir"],
         segmentation_model_name=config["inference"]["segmentation"][
