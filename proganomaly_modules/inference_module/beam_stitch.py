@@ -89,6 +89,8 @@ python3 ../proganomaly_modules/beam_image_stitch/beam_image_stitch.py \\
 --scaling_power={scaling_power} \\
 --scaling_factor={scaling_factor} \\
 --cmap_str={cmap_str} \\
+--dynamic_bandwidth_scale_factor={dynamic_bandwidth_scale_factor} \\
+--max_anomaly_points_for_kde={max_anomaly_points_for_kde} \\
 --kde_threshold={kde_threshold} \\
 --annotation_patch_gcs_filepath="" \\
 --num_confusion_matrix_thresholds=0 \\
@@ -193,6 +195,10 @@ python3 ../proganomaly_modules/beam_image_stitch/beam_image_stitch.py \\
         scaling_power=config["inference"]["gan"]["scaling_power"],
         scaling_factor=config["inference"]["gan"]["scaling_factor"],
         cmap_str=config["inference"]["gan"]["cmap_str"],
+        dynamic_bandwidth_scale_factor=config["inference"]["gan"][
+            "dynamic_bandwidth_scale_factor"],
+        max_anomaly_points_for_kde=config["inference"]["gan"][
+            "max_anomaly_points_for_kde"],
         kde_threshold=config["inference"]["gan"]["kde_threshold"],
         custom_mahalanobis_distance_threshold=(
             config["inference"]["gan"]["custom_mahalanobis_distance_threshold"]
